@@ -1,4 +1,5 @@
 #include "maple_if.h"
+#include "debug/f355_menu.h"
 #include "maple_cfg.h"
 #include "maple_helper.h"
 #include "hw/holly/holly_intc.h"
@@ -151,6 +152,7 @@ static void maple_DoDma()
 #endif
 
 	ggpo::getInput(mapleInputState);
+	f355menu::input(mapleInputState);
 	// TODO put this elsewhere and let the card readers handle being called multiple times
 	if (settings.platform.isNaomi())
 	{
