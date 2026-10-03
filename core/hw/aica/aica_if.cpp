@@ -14,6 +14,7 @@
 #include "hw/sh4/dyna/blockmanager.h"
 #include "hw/arm7/arm7.h"
 #include "cfg/option.h"
+#include "debug/f355_trace.h"
 
 #include "serialize.h"
 #include "hw/arm7/arm_mem.h"
@@ -36,6 +37,9 @@ int rtc_schid = -1;
 
 u32 GetRTC_now()
 {
+	u32 seed;
+	if (f355trace::rtcSeed(seed))
+		return seed;
 	// rtc kept static for netplay when savestate is not loaded
 	if (config::GGPOEnable)
 		// 1/1/70 00:00:00
