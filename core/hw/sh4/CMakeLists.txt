@@ -53,3 +53,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         sh4_sched.cpp
         sh4_sched.h
         storeq.cpp)
+
+# F355 integration is maintained in the parent project.
+if(NOT EXISTS "${F355_INTEGRATION_ROOT}/integration.cmake")
+    message(FATAL_ERROR "Set F355_INTEGRATION_ROOT to the F355 runtime source directory")
+endif()
+include("${F355_INTEGRATION_ROOT}/integration.cmake")

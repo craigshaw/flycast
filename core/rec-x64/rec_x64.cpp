@@ -21,6 +21,7 @@ using namespace Xbyak::util;
 #include "oslib/unwind_info.h"
 #include "oslib/virtmem.h"
 #include "cfg/option.h"
+#include "debug/f355_coverage.h"
 
 static void (*mainloop)();
 static void (*handleException)();
@@ -132,6 +133,11 @@ public:
 		CheckBlock(force_checks, block);
 
 		sub(rsp, STACK_ALIGN);
+		if (f355coverage::enabled()) {
+			const u32 coverageId = f355coverage::compile(block);
+			mov(call_regs[0], coverageId);
+			GenCall(f355coverage::enter, true);
+		}
 
 		if (mmu_enabled() && block->has_fpu_op)
 		{

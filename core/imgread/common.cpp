@@ -1,4 +1,5 @@
 #include "common.h"
+#include "debug/f355_trace.h"
 #include "hw/gdrom/gdromv3.h"
 #include "cfg/option.h"
 #include "stdclass.h"
@@ -208,8 +209,11 @@ static u32 createTrackInfoFirstLast(const Track& track, u32 tracknum)
 
 u32 libGDR_ReadSector(u8 *buff, u32 startSector, u32 sectorCount, u32 sectorSize, bool stopOnMiss)
 {
-	if (disc != nullptr)
-		return disc->ReadSectors(startSector, sectorCount, buff, sectorSize, stopOnMiss);
+	if (disc != nullptr) {
+		u32 count = disc->ReadSectors(startSector, sectorCount, buff, sectorSize, stopOnMiss);
+		f355trace::discRead(startSector, sectorCount, sectorSize, count);
+		return count;
+	}
 	if (stopOnMiss)
 		return 0;
 	memset(buff, 0, sectorCount * sectorSize);

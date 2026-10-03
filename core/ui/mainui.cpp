@@ -18,6 +18,7 @@
 */
 
 #include "mainui.h"
+#include "debug/f355_trace.h"
 #include "hw/pvr/Renderer_if.h"
 #include "gui.h"
 #include "oslib/oslib.h"
@@ -103,6 +104,8 @@ void mainui_loop(bool forceStart)
 
 	while (mainui_enabled)
 	{
+		if (f355trace::stopRequested())
+			break;
 		fc_profiler::startThread("main");
 
 		if (mainui_rend_frame() && imguiDriver != nullptr)

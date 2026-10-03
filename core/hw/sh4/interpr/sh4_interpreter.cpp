@@ -13,20 +13,27 @@
 #include "../sh4_cache.h"
 #include "debug/gdb_server.h"
 #include "../sh4_cycles.h"
+#include "debug/f355_trace.h"
+#include "debug/f355_oracle.h"
+#include "debug/f355_static.h"
+#include "debug/f355_aot.h"
 
 Sh4ICache icache;
 Sh4OCache ocache;
 Sh4Interpreter *Sh4Interpreter::Instance;
 
-void Sh4Interpreter::ExecuteOpcode(u16 op)
+void Sh4Interpreter::ExecuteOpcode(u16 op, bool delaySlot)
 {
+	if (delaySlot) f355aot::beforeDelay(*ctx);
 	if (ctx->sr.FD == 1 && OpDesc[op]->IsFloatingPoint())
 		throw SH4ThrownException(ctx->pc - 2, Sh4Ex_FpuDisabled);
-	OpPtr[op](ctx, op);
+	if (!f355static::executeSlot(*ctx, op, delaySlot) && !f355aot::execute(*ctx, op, delaySlot))
+		OpPtr[op](ctx, op);
 	sh4cycles.executeCycles(op);
+	if (delaySlot) f355aot::afterDelay(*ctx);
 }
 
-u16 Sh4Interpreter::ReadNexOp()
+u16 Sh4Interpreter::ReadNexOp(bool delaySlot)
 {
 	u32 addr = ctx->pc;
 	if (!mmu_enabled() && (addr & 1))
@@ -35,7 +42,9 @@ u16 Sh4Interpreter::ReadNexOp()
 
 	ctx->pc = addr + 2;
 
-	return IReadMem16(addr);
+	u16 op = IReadMem16(addr);
+	f355trace::fetch(*ctx, addr, op, delaySlot);
+	return op;
 }
 
 void Sh4Interpreter::Run()
@@ -43,15 +52,27 @@ void Sh4Interpreter::Run()
 	Instance = this;
 	ctx->restoreHostRoundingMode();
 
+	if (f355oracle::run(*ctx, [&](u32 budget) {
+		u32 count=f355static::executeBlock(*this,*ctx,sh4cycles,budget);
+		if (!count) count=f355aot::executeBlock(*this,*ctx,sh4cycles,budget);
+		if (count) return count;
+		ExecuteOpcode(ReadNexOp()); return 1u;
+	}, [&] { sh4cycles.reset(); })) {
+		ctx->CpuRunning = false;
+		Instance = nullptr;
+		return;
+	}
+
 	try {
 		do
 		{
 			try {
 				do
 				{
-					u32 op = ReadNexOp();
-
-					ExecuteOpcode(op);
+					if (!f355static::executeBlock(*this,*ctx,sh4cycles,32) && !f355aot::executeBlock(*this,*ctx,sh4cycles,32)) {
+						u32 op = ReadNexOp();
+						ExecuteOpcode(op);
+					}
 				} while (ctx->cycle_counter > 0);
 				ctx->cycle_counter += SH4_TIMESLICE;
 				UpdateSystem_INTC();
@@ -138,9 +159,9 @@ bool Sh4Interpreter::IsCpuRunning()
 void Sh4Interpreter::ExecuteDelayslot()
 {
 	try {
-		u32 op = ReadNexOp();
+		u32 op = ReadNexOp(true);
 
-		ExecuteOpcode(op);
+		ExecuteOpcode(op, true);
 	} catch (SH4ThrownException& ex) {
 		AdjustDelaySlotException(ex);
 		throw ex;
@@ -158,11 +179,11 @@ void Sh4Interpreter::ExecuteDelayslot_RTE()
 		// the MD bit is accessed after modification.
 		// The other bits—S, T, M, Q, FD, BL, and RB—after modification are used for delay slot
 		// instruction execution. The STC and STC.L SR instructions access all SR bits after modification.
-		u32 op = ReadNexOp();
+		u32 op = ReadNexOp(true);
 		// Now restore all SR bits
 		ctx->sr.setFull(ctx->ssr);
 		// And execute
-		ExecuteOpcode(op);
+		ExecuteOpcode(op, true);
 	} catch (const SH4ThrownException&) {
 		throw FlycastException("Fatal: SH4 exception in RTE delay slot");
 	} catch (const debugger::Stop& e) {

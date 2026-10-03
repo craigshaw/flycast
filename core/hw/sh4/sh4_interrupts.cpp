@@ -11,6 +11,7 @@
 
 #include "types.h"
 #include "sh4_interrupts.h"
+#include "debug/f355_trace.h"
 #include "sh4_core.h"
 #include "sh4_mmr.h"
 #include "oslib/oslib.h"
@@ -183,6 +184,7 @@ void ResetInterruptMask(InterruptID intr)
 
 static void Do_Interrupt(Sh4ExceptionCode intEvn)
 {
+	f355trace::exception(Sh4cntx.pc, intEvn, true);
 	CCN_INTEVT = intEvn;
 
 	Sh4cntx.ssr = Sh4cntx.sr.getFull();
@@ -198,6 +200,7 @@ static void Do_Interrupt(Sh4ExceptionCode intEvn)
 
 void Do_Exception(u32 epc, Sh4ExceptionCode expEvn)
 {
+	f355trace::exception(epc, expEvn, false);
 	assert((expEvn >= Sh4Ex_TlbMissRead && expEvn <= Sh4Ex_SlotIllegalInstr)
 			|| expEvn == Sh4Ex_FpuDisabled || expEvn == Sh4Ex_SlotFpuDisabled || expEvn == Sh4Ex_UserBreak);
 	if (Sh4cntx.sr.BL != 0)

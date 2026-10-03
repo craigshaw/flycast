@@ -46,6 +46,7 @@
 #include "profiler/fc_profiler.h"
 
 #include <nowide/args.hpp>
+#include <nowide/cstdlib.hpp>
 #include <nowide/stackstring.hpp>
 #include <exception>
 
@@ -70,6 +71,8 @@ static void setupPath()
 		fn = fn.substr(0, pos) + "\\";
 	else
 		fn = ".\\";
+	if (const char *researchHome = nowide::getenv("F355_RUNTIME_DIR"))
+		fn = std::string(researchHome) + "\\";
 	set_user_config_dir(fn);
 	add_system_data_dir(fn);
 

@@ -1,4 +1,5 @@
 #include "spg.h"
+#include "debug/f355_trace.h"
 #include "hw/holly/holly_intc.h"
 #include "hw/holly/sb.h"
 #include "hw/sh4/sh4_sched.h"
@@ -162,6 +163,7 @@ static int spg_line_sched(int tag, int cycles, int jitter, void *arg)
 			else
 				SPG_STATUS.fieldnum = 0;
 
+			f355trace::frame();
 			rend_vblank();
 
 			u64 now = getTimeMs();

@@ -9,6 +9,7 @@
 #include "hw/sh4/modules/mmu.h"
 
 #include "blockmanager.h"
+#include "debug/f355_coverage.h"
 #include "ngen.h"
 #include "decoder.h"
 #include "oslib/virtmem.h"
@@ -216,6 +217,7 @@ void (*ngen_FailedToFindBlock)() = &ngen_FailedToFindBlock_internal;
 // addr must be the physical address of the start of the block
 DynarecCodeEntryPtr DYNACALL rdv_BlockCheckFail(u32 addr)
 {
+	f355coverage::checkFail(addr);
 	DEBUG_LOG(DYNAREC, "rdv_BlockCheckFail @ %08x", addr);
 	u32 blockcheck_failures = 0;
 	if (mmu_enabled())

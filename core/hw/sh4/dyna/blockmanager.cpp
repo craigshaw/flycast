@@ -7,6 +7,7 @@
 #include <set>
 #include <map>
 #include "blockmanager.h"
+#include "debug/f355_coverage.h"
 #include "ngen.h"
 
 #include "hw/sh4/sh4_core.h"
@@ -326,6 +327,7 @@ void bm_UnlockPage(u32 addr, u32 size)
 
 void bm_ResetCache()
 {
+	f355coverage::cacheReset();
 	sh4Dynarec->reset();
 	addrspace::bm_reset();
 
@@ -456,6 +458,7 @@ void RuntimeBlockInfo::RemRef(const RuntimeBlockInfoPtr& other)
 
 void RuntimeBlockInfo::Discard()
 {
+	f355coverage::discard(this);
 	// Update references
 	for (RuntimeBlockInfoPtr& ref : pre_refs)
 	{
