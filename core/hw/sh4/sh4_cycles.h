@@ -53,6 +53,13 @@ public:
 
 	int countCycles(u16 op);
 
+	// Native blocks can precompute transitions using countCycles on an isolated
+	// copy, then publish one exact pipeline/cycle transition at a safe boundary.
+	struct AotPipeline { sh4_eu unit; int memoryOps; };
+	AotPipeline aotPipeline() const { return {lastUnit, memOps}; }
+	void aotPipeline(AotPipeline state) { lastUnit = state.unit; memOps = state.memoryOps; }
+	int aotRatio() const { return cpuRatio; }
+
 	void reset()
 	{
 		lastUnit = CO;
