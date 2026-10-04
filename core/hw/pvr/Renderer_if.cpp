@@ -11,6 +11,7 @@
 #include "hw/sh4/sh4_sched.h"
 #include "profiler/fc_profiler.h"
 #include "network/ggpo.h"
+#include "debug/f355_menu.h"
 
 #include <mutex>
 #include <deque>
@@ -45,7 +46,7 @@ class PvrMessageQueue
 	using lock_guard = std::lock_guard<std::mutex>;
 
 public:
-	enum MessageType { NoMessage = -1, Render, RenderFramebuffer, Present, Stop };
+	enum MessageType { NoMessage = -1, Render, RenderFramebuffer, Present, Stop, Capture };
 	struct Message
 	{
 		Message() = default;
@@ -54,7 +55,24 @@ public:
 
 		MessageType type = NoMessage;
 		FramebufferInfo config;
+		std::function<void(bool)> capture;
 	};
+	void capture(std::function<void(bool)> callback)
+	{
+		if (!config::ThreadedRendering)
+		{
+			setDefaultRoundingMode();
+			callback(true);
+			Sh4cntx.restoreHostRoundingMode();
+			return;
+		}
+		{
+			const lock_guard lock(mutex);
+			Message msg;msg.type=Capture;msg.capture=std::move(callback);
+			queue.push_back(std::move(msg));
+		}
+		enqueueEvent.Set();
+	}
 
 	void enqueue(MessageType type, FramebufferInfo config = FramebufferInfo())
 	{
@@ -129,6 +147,7 @@ public:
 
 	void reset() {
 		const lock_guard lock(mutex);
+		for (auto& msg : queue) if (msg.type == Capture) msg.capture(false);
 		queue.clear();
 	}
 
@@ -137,6 +156,7 @@ public:
 		const lock_guard lock(mutex);
 		for (auto it = queue.begin(); it != queue.end(); )
 		{
+			if (it->type == Capture) it->capture(false);
 			if (it->type != Render)
 				it = queue.erase(it);
 			else
@@ -184,6 +204,9 @@ private:
 			return true;
 		case Present:
 			present();
+			return true;
+		case Capture:
+			msg.capture(true);
 			return true;
 		case Stop:
 		case NoMessage:
@@ -281,6 +304,11 @@ private:
 };
 
 static PvrMessageQueue pvrQueue;
+
+void f355menu::onRenderThread(std::function<void(bool)> callback)
+{
+	pvrQueue.capture(std::move(callback));
+}
 
 bool rend_single_frame(const bool& enabled)
 {
