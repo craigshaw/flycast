@@ -69,7 +69,10 @@ void Sh4Interpreter::Run()
 			try {
 				do
 				{
-					if (!f355static::executeBlock(*this,*ctx,sh4cycles,32) && !f355aot::executeBlock(*this,*ctx,sh4cycles,32)) {
+					// Native regions stop at the exact scheduler deadline. A tiny
+					// arbitrary budget fragments them into guarded instruction tails.
+					// The oracle above retains its caller-supplied step bound.
+					if (!f355static::executeBlock(*this,*ctx,sh4cycles,4096) && !f355aot::executeBlock(*this,*ctx,sh4cycles,32)) {
 						u32 op = ReadNexOp();
 						ExecuteOpcode(op);
 					}
