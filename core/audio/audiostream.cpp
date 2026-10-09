@@ -59,7 +59,7 @@ void WriteSample(s16 r, s16 l)
 		if (currentBackend != nullptr) {
 			const auto began = f355audio::enabled ? f355audio::beginPush() : 0;
 			currentBackend->push(Buffer, SAMPLE_COUNT, config::LimitFPS);
-			if (f355audio::enabled) f355audio::endPush(began, SAMPLE_COUNT);
+			if (f355audio::enabled) f355audio::endPush(began, SAMPLE_COUNT, Buffer);
 		}
 		writePtr = 0;
 	}
