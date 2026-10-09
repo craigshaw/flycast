@@ -1,6 +1,7 @@
 #include "build.h"
 #if defined(_WIN32) && !defined(TARGET_UWP)
 #include "audiostream.h"
+#include "debug/f355_audio.h"
 #include "cfg/option.h"
 #include <initguid.h>
 #include <dsound.h>
@@ -64,11 +65,15 @@ class DirectSoundBackend : public AudioBackend
 
 			if (SUCCEEDED(buffer->Lock(notificationOffset(rv), SAMPLE_BYTES, &p1, &sz1, &p2, &sz2, 0)))
 			{
-				if (!ringBuffer.read((u8*)p1, sz1))
+				const bool readFirst = ringBuffer.read((u8*)p1, sz1);
+				if (f355audio::enabled) f355audio::consume(sz1 / 4, readFirst ? sz1 / 4 : 0);
+				if (!readFirst)
 					memset(p1, 0, sz1);
 				if (sz2 != 0)
 				{
-					if (!ringBuffer.read((u8*)p2, sz2))
+					const bool readSecond = ringBuffer.read((u8*)p2, sz2);
+					if (f355audio::enabled) f355audio::consume(sz2 / 4, readSecond ? sz2 / 4 : 0);
+					if (!readSecond)
 						memset(p2, 0, sz2);
 				}
 				buffer->Unlock(p1, sz1, p2, sz2);

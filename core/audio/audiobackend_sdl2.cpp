@@ -4,6 +4,7 @@
 #include "audiostream.h"
 #include "cfg/option.h"
 #include "stdclass.h"
+#include "debug/f355_audio.h"
 
 #include <algorithm>
 #include <atomic>
@@ -33,6 +34,7 @@ class SDLAudioBackend : AudioBackend
 		// Wait until there's enough samples to feed the kraken
 		unsigned oslen = len / sizeof(uint32_t);
 		unsigned islen = backend->needs_resampling ? std::ceil(oslen / backend->audioCvt.len_ratio) : oslen;
+		if (f355audio::enabled) f355audio::consume(islen, backend->sample_count < islen ? 0 : islen, backend->sample_count);
 
 		if (backend->sample_count < islen)
 		{

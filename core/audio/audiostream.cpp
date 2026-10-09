@@ -1,6 +1,7 @@
 #include "audiostream.h"
 #include "cfg/option.h"
 #include "emulator.h"
+#include "debug/f355_audio.h"
 
 static void registerForEvents();
 
@@ -55,8 +56,11 @@ void WriteSample(s16 r, s16 l)
 
 	if (++writePtr == SAMPLE_COUNT)
 	{
-		if (currentBackend != nullptr)
+		if (currentBackend != nullptr) {
+			const auto began = f355audio::enabled ? f355audio::beginPush() : 0;
 			currentBackend->push(Buffer, SAMPLE_COUNT, config::LimitFPS);
+			if (f355audio::enabled) f355audio::endPush(began, SAMPLE_COUNT);
+		}
 		writePtr = 0;
 	}
 }
@@ -65,6 +69,7 @@ void InitAudio()
 {
 	registerForEvents();
 	TermAudio();
+	f355audio::init();
 
 	std::string slug = config::AudioBackend;
 	currentBackend = AudioBackend::getBackend(slug);
@@ -96,6 +101,7 @@ void InitAudio()
 		return;
 	}
 
+	if (f355audio::enabled) f355audio::backend(currentBackend->slug.c_str(), config::AudioBufferSize);
 	if (audio_recording_started)
 	{
 		// Restart recording
