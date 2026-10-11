@@ -19,6 +19,8 @@ class SDLAudioBackend : AudioBackend
 	uint32_t *sample_buffer;
 	unsigned sample_buffer_size = 0;
 	unsigned sample_count = 0;
+	unsigned callback_input_samples = 0;
+	bool playback_started = false;
 	SDL_AudioCVT audioCvt;
 
 	SDL_AudioDeviceID recorddev {};
@@ -83,6 +85,8 @@ public:
 		sample_buffer_size = std::max<u32>(SAMPLE_COUNT * 2, config::AudioBufferSize);
 		sample_buffer = new uint32_t[sample_buffer_size]();
 		sample_count = 0;
+		playback_started = false;
+		callback_input_samples = 0;
 
 		// Support 44.1KHz (native) but also upsampling to 48KHz
 		SDL_AudioSpec wav_spec, out_spec;
@@ -122,13 +126,16 @@ public:
 			}
 		}
 
+		if (audiodev != 0)
+			callback_input_samples = needs_resampling ? std::ceil(out_spec.samples / audioCvt.len_ratio) : out_spec.samples;
+
 		return audiodev != 0;
 	}
 
 	u32 push(const void* frame, u32 samples, bool wait) override
 	{
-		// Unpause the device shall it be paused.
-		if (SDL_GetAudioDeviceStatus(audiodev) != SDL_AUDIO_PLAYING)
+		// Preserve resume behavior after initial playback has started.
+		if (playback_started && SDL_GetAudioDeviceStatus(audiodev) != SDL_AUDIO_PLAYING)
 			SDL_PauseAudioDevice(audiodev, 0);
 
 		// If wait, then wait for the buffer to be smaller than a certain size.
@@ -146,7 +153,15 @@ public:
 		unsigned tocopy = samples < free_samples ? samples : free_samples;
 		memcpy(&sample_buffer[sample_count], frame, tocopy * sizeof(uint32_t));
 		sample_count += tocopy;
+		const bool start_playback = !playback_started && sample_count >= callback_input_samples;
 		stream_mutex.unlock();
+
+		// The first producer block can be smaller than one SDL callback.
+		// Start when that callback can be filled, without enlarging the buffer.
+		if (start_playback) {
+			SDL_PauseAudioDevice(audiodev, 0);
+			playback_started = true;
+		}
 
 		return 1;
 	}
